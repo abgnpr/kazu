@@ -44,3 +44,51 @@ export type JobStatus = {
   last_error: string | null;
   stale: boolean | null;
 };
+
+export type BreakoutRow = {
+  symbol: string;
+  name: string | null;
+  date: string;
+  close: number;
+  change_pct: number | null;
+  sma30: number | null;
+  sma50: number | null;
+  sma200: number | null;
+  dist_200dma_pct: number | null;
+  high_52w: number | null;
+  from_52w_high_pct: number | null;
+  high_date: string | null;
+  volume: number;
+  rel_volume: number | null;
+  car_value: number | null;
+  car_sessions: number;
+  car_positive: boolean;
+  above_30dma: boolean;
+  above_50dma: boolean;
+  above_200dma: boolean;
+  breakout: boolean;
+};
+
+export type Coverage = {
+  sessions: number;
+  symbols: number;
+  first_date: string | null;
+  last_date: string | null;
+  non_trading_days: number;
+  has_200dma: boolean;
+  has_52w: boolean;
+};
+
+export type BreakoutResponse = {
+  coverage: Coverage;
+  passing: number;
+  rows: BreakoutRow[];
+};
+
+export type BackfillResult = {
+  dates: number;
+  rows: number;
+  absent: number;
+  failed: number;
+  note?: string;
+};

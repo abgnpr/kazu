@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from kazu import __version__, jobs
 from kazu.api.routes import router
 from kazu.config import settings
-from kazu.data import db, seed
+from kazu.data import db
 
 log = logging.getLogger(__name__)
 
@@ -29,12 +29,12 @@ ALLOWED_ORIGINS = [
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.connect()
-    if seed.seed_if_empty():
-        log.info("seeded sample market data")
 
     scheduler: BackgroundScheduler | None = None
     if settings.enable_scheduler:
-        # Catch-up pass first: whatever went stale while the machine was asleep.
+        # Catch-up pass first: whatever was published while the app was closed.
+        # Only the latest sessions -- deeper history is an explicit backfill,
+        # since each trading day costs one request to NSE.
         jobs.run_due_jobs()
         scheduler = BackgroundScheduler(daemon=True)
         scheduler.add_job(jobs.run_due_jobs, "interval", minutes=15, id="due_jobs")

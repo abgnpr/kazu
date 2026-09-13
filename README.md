@@ -35,8 +35,11 @@ cd frontend && npm install && cd ..
 npm run dev          # Python service + Tauri window
 ```
 
-On first run the service creates its database and seeds sample instruments, so
-the UI has data immediately. Delete `~/.local/share/kazu/kazu.duckdb` to reset.
+On first run the service downloads the most recent NSE bhavcopy (~2,700
+equities) so the app is usable in seconds. The breakout screen needs ~250
+sessions of history, which is one HTTP request per trading day — click
+**Backfill 2 years** in the app when you want it (about a minute). Delete
+`~/.local/share/kazu/kazu.duckdb` to reset.
 
 Useful alternatives:
 
@@ -98,15 +101,57 @@ sidecar. It is kept out of the base config so `npm run dev` does not require a
 PyInstaller build. Installers land in `frontend/src-tauri/target/release/bundle/`.
 The user installs one file and needs no Python, Node or Rust.
 
-## Adding a real data source
+## Data source: NSE bhavcopy
 
-The seed data exists only to make the app runnable. To replace it:
+The daily end-of-day file NSE publishes for the whole cash market:
 
-1. Add a module under `backend/kazu/sources/` that fetches and normalises data
-   into a DataFrame.
-2. Call it from `_refresh_prices()` in `jobs.py` and write with
-   `db.upsert_df(...)`; the staleness bookkeeping around it already works.
-3. Delete `data/seed.py` and the `seed_if_empty()` call in `app.py`.
+```
+https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_<YYYYMMDD>_F_0000.csv.zip
+```
+
+Worth knowing before relying on it:
+
+- **One file per trading date.** There is no bulk or date-range endpoint, so
+  history is built one request at a time.
+- **This URL scheme reaches back about two years.** Earlier dates use a
+  different legacy format and are not supported.
+- **A 404 is normal, not a failure.** Weekends and holidays have no file. Those
+  dates are recorded in `ingest_log` as `absent` so they are never re-requested.
+- **EQ and BE series only**, with ETF/fund symbols excluded, since those distort
+  volume ranking.
+
+Because the app owns an `ingest_log`, catch-up is about *missed dates* rather
+than a fixed lookback: leave the app closed for two weeks and the next launch
+fills in those sessions, capped at 90 days (beyond that, use backfill).
+
+## The breakout screen
+
+`analytics/breakout.py` implements the CAR + DMA rule:
+
+```
+close > SMA30  AND  close > SMA50  AND  close > SMA200  AND  CAR rising 10 sessions
+```
+
+CAR is the expanding mean of closes measured from the date of the 52-week high.
+Results are ranked by distance from the 200 DMA ascending — the stocks earliest
+in their move.
+
+It runs as DuckDB window functions over the entire market (~2,300 eligible
+symbols in about 0.2s) rather than a per-ticker Python loop.
+
+Two deliberate differences from the original:
+
+- **Near-misses stay visible.** The original drops any stock whose 52-week high
+  is under 10 sessions old. Here the row is kept with `car_positive = false` and
+  a `car_sessions` count, so you can see why it did not qualify. Toggle
+  "Only passing" to filter.
+- **The CAR check is one SQL pass.** An expanding mean rises exactly when the
+  new close exceeds the mean of everything before it, so no Python loop is
+  needed. Equality is treated as non-failing, matching pandas'
+  `is_monotonic_increasing`.
+
+Verified against a direct pandas port of the original logic: SMA30/50/200, CAR
+status, breakout flag, and 200-DMA distance agree on every symbol tested.
 
 ## Deferred decisions
 

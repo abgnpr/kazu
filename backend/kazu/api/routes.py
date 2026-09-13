@@ -5,9 +5,10 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 
 from kazu import jobs
-from kazu.analytics import indicators
+from kazu.analytics import breakout, indicators
 from kazu.config import settings
 from kazu.data import db
+from kazu.sources import ingest
 
 router = APIRouter(prefix="/api")
 
@@ -82,6 +83,37 @@ def remove_from_watchlist(symbol: str, name: str = "default") -> dict:
     symbol = symbol.upper()
     db.execute("DELETE FROM watchlists WHERE name = ? AND symbol = ?", [name, symbol])
     return {"watchlist": name, "symbol": symbol, "removed": True}
+
+
+@router.get("/breakouts")
+def breakouts(
+    only_passing: bool = Query(False, description="Only symbols clearing all four conditions"),
+    limit: int | None = Query(None, ge=1, le=5000),
+) -> dict:
+    """CAR + 30/50/200 DMA breakout screen over the whole market.
+
+    Returns every eligible symbol with per-condition flags so near-misses stay
+    visible, ordered by distance from the 200 DMA ascending.
+    """
+    rows = breakout.breakouts(only_passing=only_passing, limit=limit)
+    return {
+        "coverage": ingest.coverage(),
+        "passing": sum(1 for r in rows if r["breakout"]),
+        "rows": rows,
+    }
+
+
+@router.get("/coverage")
+def coverage() -> dict:
+    """How much history exists, and whether the indicators have enough of it."""
+    return ingest.coverage()
+
+
+@router.post("/ingest/backfill")
+def start_backfill(days: int = Query(400, ge=1, le=800)) -> dict:
+    """Fetch history on demand. One HTTP request per trading day, so this is
+    deliberately explicit rather than something startup does."""
+    return ingest.backfill(days=days)
 
 
 @router.get("/jobs")

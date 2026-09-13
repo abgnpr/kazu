@@ -1,14 +1,23 @@
 /** TanStack Query hooks. Query keys are centralised so invalidation stays sane. */
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "./client";
-import type { History, JobStatus, ScreenerRow } from "./types";
+import type {
+  BackfillResult,
+  BreakoutResponse,
+  Coverage,
+  History,
+  JobStatus,
+  ScreenerRow,
+} from "./types";
 
 export const keys = {
   screener: ["screener"] as const,
   watchlist: ["watchlist"] as const,
   jobs: ["jobs"] as const,
+  coverage: ["coverage"] as const,
+  breakouts: (onlyPassing: boolean) => ["breakouts", onlyPassing] as const,
   history: (symbol: string, limit: number) => ["history", symbol, limit] as const,
 };
 
@@ -36,5 +45,34 @@ export function useJobs() {
     queryKey: keys.jobs,
     queryFn: () => api<JobStatus[]>("/api/jobs"),
     refetchInterval: 60_000,
+  });
+}
+
+export function useBreakouts(onlyPassing: boolean) {
+  return useQuery({
+    queryKey: keys.breakouts(onlyPassing),
+    queryFn: () =>
+      api<BreakoutResponse>(`/api/breakouts?only_passing=${onlyPassing}`),
+  });
+}
+
+export function useCoverage() {
+  return useQuery({ queryKey: keys.coverage, queryFn: () => api<Coverage>("/api/coverage") });
+}
+
+/** Backfill is one HTTP request per trading day, so it is slow by nature and
+ *  deliberately user-triggered. Everything derived from prices is invalidated
+ *  once it lands. */
+export function useBackfill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (days: number) =>
+      api<BackfillResult>(`/api/ingest/backfill?days=${days}`, { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.coverage });
+      qc.invalidateQueries({ queryKey: ["breakouts"] });
+      qc.invalidateQueries({ queryKey: keys.screener });
+      qc.invalidateQueries({ queryKey: keys.watchlist });
+    },
   });
 }

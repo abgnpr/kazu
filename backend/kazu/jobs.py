@@ -13,6 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from kazu.data import db
+from kazu.sources import ingest
 
 log = logging.getLogger(__name__)
 
@@ -52,21 +53,21 @@ def is_stale(job: str, max_age: dt.timedelta) -> bool:
 
 
 def _refresh_prices() -> None:
-    """Placeholder for the real daily-price fetch.
-
-    Replace the body with a call into kazu/sources/ once a data source is chosen;
-    the surrounding staleness bookkeeping stays as-is.
-    """
-    log.info("refresh_prices: no source wired yet, nothing to do")
-
-
-def _refresh_fundamentals() -> None:
-    log.info("refresh_fundamentals: no source wired yet, nothing to do")
+    """Pull any NSE bhavcopies published since the last successful ingest."""
+    result = ingest.catch_up()
+    log.info(
+        "prices: %d date(s), %d rows, %d non-trading, %d failed",
+        result["dates"], result["rows"], result["absent"], result["failed"],
+    )
+    # A date that failed outright should not mark the job fresh, or the gap
+    # would not be retried until the next max_age elapses.
+    if result["failed"]:
+        raise RuntimeError(f"{result['failed']} date(s) failed to ingest")
 
 
 JOBS: list[Job] = [
+    # NSE publishes end-of-day, so checking a few times a day is plenty.
     Job("daily_prices", dt.timedelta(hours=6), _refresh_prices),
-    Job("fundamentals", dt.timedelta(days=1), _refresh_fundamentals),
 ]
 
 

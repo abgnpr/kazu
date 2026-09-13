@@ -27,19 +27,35 @@ DDL = [
         name      VARCHAR,
         exchange  VARCHAR,
         sector    VARCHAR,
+        isin      VARCHAR,
+        series    VARCHAR,
         currency  VARCHAR DEFAULT 'INR'
     )
     """,
     """
     CREATE TABLE IF NOT EXISTS prices_daily (
-        symbol VARCHAR NOT NULL,
-        date   DATE    NOT NULL,
-        open   DOUBLE,
-        high   DOUBLE,
-        low    DOUBLE,
-        close  DOUBLE,
-        volume BIGINT,
+        symbol   VARCHAR NOT NULL,
+        date     DATE    NOT NULL,
+        open     DOUBLE,
+        high     DOUBLE,
+        low      DOUBLE,
+        close    DOUBLE,
+        volume   BIGINT,
+        turnover DOUBLE,
+        trades   BIGINT,
         PRIMARY KEY (symbol, date)
+    )
+    """,
+    # One row per attempted trading date. `status` is 'ok' when a bhavcopy was
+    # ingested and 'absent' when NSE has no file (weekend/holiday) -- absent
+    # dates are remembered so they are never re-requested.
+    """
+    CREATE TABLE IF NOT EXISTS ingest_log (
+        date     DATE PRIMARY KEY,
+        status   VARCHAR NOT NULL,
+        rows     BIGINT,
+        fetched  TIMESTAMP DEFAULT current_timestamp,
+        note     VARCHAR
     )
     """,
     """
@@ -116,10 +132,25 @@ def query_rows(sql: str, params: Sequence[Any] | None = None) -> list[dict[str, 
         return [dict(zip(cols, row, strict=True)) for row in cur.fetchall()]
 
 
-def execute(sql: str, params: Sequence[Any] | None = None) -> None:
+def execute(
+    sql: str,
+    params: Sequence[Any] | None = None,
+    *,
+    _register: tuple[str, pd.DataFrame] | None = None,
+) -> None:
+    """Run a statement. `_register` exposes a DataFrame to the SQL under a name,
+    so INSERT ... SELECT can read from it (used for upserts with ON CONFLICT)."""
     conn = connect()
     with _LOCK:
-        conn.execute(sql, params or [])
+        if _register is None:
+            conn.execute(sql, params or [])
+            return
+        name, frame = _register
+        conn.register(name, frame)
+        try:
+            conn.execute(sql, params or [])
+        finally:
+            conn.unregister(name)
 
 
 def upsert_df(table: str, df: pd.DataFrame, keys: Sequence[str]) -> int:
