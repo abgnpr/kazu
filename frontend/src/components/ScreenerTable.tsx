@@ -1,5 +1,18 @@
-import { Alert, Group, Loader, Table, Text, TextInput, UnstyledButton } from "@mantine/core";
-import { IconSearch, IconSelector, IconSortAscending, IconSortDescending } from "@tabler/icons-react";
+import {
+  Alert,
+  Group,
+  Loader,
+  Table,
+  Text,
+  TextInput,
+  UnstyledButton,
+} from "@mantine/core";
+import {
+  IconSearch,
+  IconSelector,
+  IconSortAscending,
+  IconSortDescending,
+} from "@tabler/icons-react";
 import {
   createColumnHelper,
   createCoreRowModel,
@@ -45,7 +58,15 @@ function Num({ value, tone = false }: { value: string; tone?: boolean }) {
       component="span"
       size="sm"
       className="numeric"
-      c={tone ? (negative ? "red" : value === "—" ? "dimmed" : "teal") : undefined}
+      c={
+        tone
+          ? negative
+            ? "red"
+            : value === "—"
+              ? "dimmed"
+              : "teal"
+          : undefined
+      }
     >
       {value}
     </Text>
@@ -128,7 +149,9 @@ type Props = {
 
 export function ScreenerTable({ selected, onSelect }: Props) {
   const { data, isLoading, error } = useScreener();
-  const [sorting, setSorting] = useState<SortingState>([{ id: "symbol", desc: false }]);
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "symbol", desc: false },
+  ]);
   const [filter, setFilter] = useState("");
 
   const rows = useMemo(() => data ?? [], [data]);
@@ -152,16 +175,31 @@ export function ScreenerTable({ selected, onSelect }: Props) {
     );
 
   return (
-    <>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        flex: 1,
+        minHeight: 0,
+      }}
+    >
       <TextInput
         size="xs"
         mb="xs"
+        style={{ flex: "0 0 auto" }}
         placeholder="Filter symbols…"
         leftSection={<IconSearch size={14} />}
         value={filter}
         onChange={(e) => setFilter(e.currentTarget.value)}
       />
-      <Table.ScrollContainer minWidth={900}>
+      {/* Mantine's scroll container only sets overflow-x, so overflow-y is
+          declared here; type="native" keeps both axes on one real scrollport.
+          minHeight: 0 is required for the flex parent to allow shrinking. */}
+      <Table.ScrollContainer
+        minWidth={900}
+        type="native"
+        style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
+      >
         <Table highlightOnHover stickyHeader>
           <Table.Thead>
             {table.getHeaderGroups().map((hg) => (
@@ -198,7 +236,11 @@ export function ScreenerTable({ selected, onSelect }: Props) {
               <Table.Tr
                 key={row.id}
                 onClick={() => onSelect(row.original.symbol)}
-                bg={row.original.symbol === selected ? "var(--mantine-color-dark-6)" : undefined}
+                bg={
+                  row.original.symbol === selected
+                    ? "var(--mantine-color-dark-6)"
+                    : undefined
+                }
                 style={{ cursor: "pointer" }}
               >
                 {row.getVisibleCells().map((cell) => (
@@ -211,6 +253,6 @@ export function ScreenerTable({ selected, onSelect }: Props) {
           </Table.Tbody>
         </Table>
       </Table.ScrollContainer>
-    </>
+    </div>
   );
 }

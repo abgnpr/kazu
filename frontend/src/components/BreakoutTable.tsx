@@ -1,4 +1,13 @@
-import { Alert, Badge, Group, Loader, Switch, Table, Text, Tooltip } from "@mantine/core";
+import {
+  Alert,
+  Badge,
+  Group,
+  Loader,
+  Switch,
+  Table,
+  Text,
+  Tooltip,
+} from "@mantine/core";
 import { IconCheck, IconX } from "@tabler/icons-react";
 import { useState } from "react";
 
@@ -10,7 +19,11 @@ import { fmtCompact, fmtPct, fmtPrice } from "../theme/format";
 function Flag({ ok, label }: { ok: boolean; label: string }) {
   return (
     <Tooltip label={`${label}: ${ok ? "pass" : "fail"}`} withArrow>
-      <Text component="span" c={ok ? "teal" : "dimmed"} style={{ display: "inline-flex" }}>
+      <Text
+        component="span"
+        c={ok ? "teal" : "dimmed"}
+        style={{ display: "inline-flex" }}
+      >
         {ok ? <IconCheck size={13} /> : <IconX size={13} />}
       </Text>
     </Tooltip>
@@ -24,7 +37,15 @@ function Num({ value, tone = false }: { value: string; tone?: boolean }) {
       component="span"
       size="sm"
       className="numeric"
-      c={tone ? (negative ? "red" : value === "—" ? "dimmed" : "teal") : undefined}
+      c={
+        tone
+          ? negative
+            ? "red"
+            : value === "—"
+              ? "dimmed"
+              : "teal"
+          : undefined
+      }
     >
       {value}
     </Text>
@@ -52,13 +73,24 @@ export function BreakoutTable({ selected, onSelect }: Props) {
   const coverage = data?.coverage;
 
   return (
-    <>
-      <Group justify="space-between" mb="xs">
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        flex: 1,
+        minHeight: 0,
+      }}
+    >
+      <Group justify="space-between" mb="xs" style={{ flex: "0 0 auto" }}>
         <Group gap="xs">
           <Text size="xs" tt="uppercase" fw={600} c="dimmed">
             CAR + DMA Breakouts
           </Text>
-          <Badge size="xs" variant="light" color={data?.passing ? "teal" : "gray"}>
+          <Badge
+            size="xs"
+            variant="light"
+            color={data?.passing ? "teal" : "gray"}
+          >
             {data?.passing ?? 0} passing
           </Badge>
         </Group>
@@ -83,11 +115,24 @@ export function BreakoutTable({ selected, onSelect }: Props) {
       )}
 
       {rows.length > 0 && (
-        <Table.ScrollContainer minWidth={1000}>
+        <Table.ScrollContainer
+          minWidth={1000}
+          type="native"
+          style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
+        >
           <Table highlightOnHover stickyHeader>
             <Table.Thead>
               <Table.Tr>
-                {["Symbol", "Close", "Chg %", "30", "50", "200", "CAR", "Cond."].map((h) => (
+                {[
+                  "Symbol",
+                  "Close",
+                  "Chg %",
+                  "30",
+                  "50",
+                  "200",
+                  "CAR",
+                  "Cond.",
+                ].map((h) => (
                   <Table.Th key={h}>
                     <Text size="xs" fw={600} tt="uppercase" c="dimmed">
                       {h}
@@ -115,14 +160,26 @@ export function BreakoutTable({ selected, onSelect }: Props) {
                 <Table.Tr
                   key={r.symbol}
                   onClick={() => onSelect(r.symbol)}
-                  bg={r.symbol === selected ? "var(--mantine-color-dark-6)" : undefined}
+                  bg={
+                    r.symbol === selected
+                      ? "var(--mantine-color-dark-6)"
+                      : undefined
+                  }
                   style={{ cursor: "pointer" }}
                 >
                   <Table.Td>
                     <Group gap={6} wrap="nowrap">
                       {r.breakout && (
                         <Tooltip label="Clears all four conditions">
-                          <Badge size="xs" circle color="teal" variant="filled" p={0} w={7} h={7} />
+                          <Badge
+                            size="xs"
+                            circle
+                            color="teal"
+                            variant="filled"
+                            p={0}
+                            w={7}
+                            h={7}
+                          />
                         </Tooltip>
                       )}
                       <Text size="sm" fw={600}>
@@ -160,7 +217,10 @@ export function BreakoutTable({ selected, onSelect }: Props) {
                       <Flag ok={r.above_30dma} label="Above 30 DMA" />
                       <Flag ok={r.above_50dma} label="Above 50 DMA" />
                       <Flag ok={r.above_200dma} label="Above 200 DMA" />
-                      <Flag ok={r.car_positive} label="CAR rising 10 sessions" />
+                      <Flag
+                        ok={r.car_positive}
+                        label="CAR rising 10 sessions"
+                      />
                     </Group>
                   </Table.Td>
                   <Table.Td>
@@ -181,6 +241,6 @@ export function BreakoutTable({ selected, onSelect }: Props) {
           </Table>
         </Table.ScrollContainer>
       )}
-    </>
+    </div>
   );
 }
