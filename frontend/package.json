@@ -9,7 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:build": "tauri build --config src-tauri/tauri.release.conf.json"
+    "tauri:build": "NO_STRIP=1 tauri build --config src-tauri/tauri.release.conf.json"
   },
   "dependencies": {
     "@mantine/core": "^9.6.1",

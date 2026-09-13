@@ -79,6 +79,9 @@ pub fn run() {
                     .sidecar("kazu-service")?
                     .env("KAZU_HOST", HOST)
                     .env("KAZU_PORT", PORT.to_string())
+                    // The sidecar watches this pid and exits if we die without
+                    // getting to the RunEvent handler below (SIGKILL, crash).
+                    .env("KAZU_PARENT_PID", std::process::id().to_string())
                     .env("KAZU_AUTH_TOKEN", token.clone())
                     .spawn()?;
 
