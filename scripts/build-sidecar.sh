@@ -34,4 +34,9 @@ mkdir -p "$DEST"
 cp "$BACKEND/dist/kazu-service" "$DEST/kazu-service-$TRIPLE"
 chmod +x "$DEST/kazu-service-$TRIPLE"
 
+# Fail loudly here rather than inside the Rust build, where the error is just
+# "resource path doesn't exist".
+"$DEST/kazu-service-$TRIPLE" --help >/dev/null 2>&1 || true
+[ -x "$DEST/kazu-service-$TRIPLE" ] || { echo "sidecar missing or not executable" >&2; exit 1; }
+
 echo "==> sidecar ready: $DEST/kazu-service-$TRIPLE"

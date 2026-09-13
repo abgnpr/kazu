@@ -8,7 +8,7 @@
     "dev:api": "cd backend && uv run python -m kazu",
     "dev:ui": "cd frontend && npm run dev",
     "build:sidecar": "./scripts/build-sidecar.sh",
-    "build": "npm run build:sidecar && cd frontend && npm run tauri build",
+    "build": "npm run build:sidecar && cd frontend && npm run tauri:build",
     "lint": "cd backend && uv run ruff check . && cd ../frontend && npm run lint",
     "typecheck": "cd frontend && tsc -b --force",
     "format": "cd backend && uv run ruff format ."

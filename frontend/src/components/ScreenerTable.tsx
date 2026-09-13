@@ -7,8 +7,11 @@ import {
   createSortedRowModel,
   columnFilteringFeature,
   columnVisibilityFeature,
+  filterFn_includesString,
   globalFilteringFeature,
   rowSortingFeature,
+  sortFn_basic,
+  sortFn_text,
   tableFeatures,
   useTable,
   type ColumnDef,
@@ -28,6 +31,8 @@ const features = tableFeatures({
   coreRowModel: createCoreRowModel(),
   sortedRowModel: createSortedRowModel(),
   filteredRowModel: createFilteredRowModel(),
+  sortFns: { text: sortFn_text, basic: sortFn_basic },
+  filterFns: { includesString: filterFn_includesString },
 });
 
 const col = createColumnHelper<typeof features, ScreenerRow>();
@@ -50,6 +55,7 @@ function Num({ value, tone = false }: { value: string; tone?: boolean }) {
 const columns: ColumnDef<typeof features, ScreenerRow, any>[] = [
   col.accessor("symbol", {
     header: "Symbol",
+    sortFn: "text",
     cell: (c) => (
       <Text size="sm" fw={600}>
         {c.getValue()}
@@ -58,6 +64,7 @@ const columns: ColumnDef<typeof features, ScreenerRow, any>[] = [
   }),
   col.accessor("sector", {
     header: "Sector",
+    sortFn: "text",
     cell: (c) => (
       <Text size="xs" c="dimmed">
         {c.getValue() ?? "—"}
@@ -65,34 +72,50 @@ const columns: ColumnDef<typeof features, ScreenerRow, any>[] = [
     ),
   }),
   col.accessor("close", {
+    sortFn: "basic",
+    sortUndefined: "last",
     header: "Close",
     cell: (c) => <Num value={fmtPrice(c.getValue())} />,
   }),
   col.accessor("change_pct", {
+    sortFn: "basic",
+    sortUndefined: "last",
     header: "Chg %",
     cell: (c) => <Num value={fmtPct(c.getValue())} tone />,
   }),
   col.accessor("rel_volume", {
+    sortFn: "basic",
+    sortUndefined: "last",
     header: "Rel Vol",
     cell: (c) => <Num value={c.getValue()?.toFixed(2) ?? "—"} />,
   }),
   col.accessor("return_3m", {
+    sortFn: "basic",
+    sortUndefined: "last",
     header: "3M %",
     cell: (c) => <Num value={fmtPct(c.getValue())} tone />,
   }),
   col.accessor("return_1y", {
+    sortFn: "basic",
+    sortUndefined: "last",
     header: "1Y %",
     cell: (c) => <Num value={fmtPct(c.getValue())} tone />,
   }),
   col.accessor("volatility", {
+    sortFn: "basic",
+    sortUndefined: "last",
     header: "Vol %",
     cell: (c) => <Num value={c.getValue()?.toFixed(1) ?? "—"} />,
   }),
   col.accessor("pe_ratio", {
+    sortFn: "basic",
+    sortUndefined: "last",
     header: "P/E",
     cell: (c) => <Num value={c.getValue()?.toFixed(1) ?? "—"} />,
   }),
   col.accessor("market_cap", {
+    sortFn: "basic",
+    sortUndefined: "last",
     header: "Mkt Cap",
     cell: (c) => <Num value={fmtCompact(c.getValue())} />,
   }),
@@ -114,6 +137,7 @@ export function ScreenerTable({ selected, onSelect }: Props) {
     features,
     data: rows,
     columns,
+    globalFilterFn: "includesString",
     state: { sorting, globalFilter: filter },
     onSortingChange: setSorting,
     onGlobalFilterChange: setFilter,

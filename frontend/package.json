@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:build": "tauri build --config tauri.release.conf.json"
   },
   "dependencies": {
     "@mantine/core": "^9.6.1",
@@ -20,7 +22,6 @@
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-shell": "^2.3.6",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8",
     "recharts": "^3.10.1"
   },
   "devDependencies": {
@@ -30,6 +31,7 @@
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "oxlint": "^1.81.0",
+    "react-dom": "^19.3.0",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
   }

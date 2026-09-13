@@ -93,7 +93,9 @@ npm run build
 
 This packages the service with PyInstaller into
 `frontend/src-tauri/binaries/kazu-service-<target-triple>`, then bundles it with
-the Tauri app. Installers land in `frontend/src-tauri/target/release/bundle/`.
+the Tauri app via `tauri.release.conf.json`, the overlay that declares the
+sidecar. It is kept out of the base config so `npm run dev` does not require a
+PyInstaller build. Installers land in `frontend/src-tauri/target/release/bundle/`.
 The user installs one file and needs no Python, Node or Rust.
 
 ## Adding a real data source
