@@ -4,7 +4,18 @@ import { useJobs } from "../api/queries";
 
 /** Shows whether the background service's data is current. */
 export function StatusBar() {
-  const { data, error } = useJobs();
+  const { data, error, isPending } = useJobs();
+
+  // While the query is still retrying, the service is most likely just booting
+  // (PyInstaller unpack + DuckDB open). Saying "unreachable" there is alarming
+  // and wrong; only report failure once the retries are exhausted.
+  if (isPending) {
+    return (
+      <Badge color="gray" variant="light" size="sm">
+        Starting service…
+      </Badge>
+    );
+  }
 
   if (error) {
     return (

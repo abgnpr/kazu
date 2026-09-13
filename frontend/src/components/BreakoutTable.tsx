@@ -77,13 +77,16 @@ export function BreakoutTable({ selected, onSelect }: Props) {
     overscan: 12,
   });
 
-  if (error) return <Alert color="red">{(error as Error).message}</Alert>;
   if (isLoading)
     return (
-      <Group justify="center" py="xl">
+      <Group justify="center" py="xl" gap="xs">
         <Loader size="sm" />
+        <Text size="xs" c="dimmed">
+          Waiting for the service…
+        </Text>
       </Group>
     );
+  if (error) return <Alert color="red">{(error as Error).message}</Alert>;
 
   const rows = allRows;
   const coverage = data?.coverage;

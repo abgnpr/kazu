@@ -18,7 +18,13 @@ const queryClient = new QueryClient({
       // by user actions, so aggressive refetching buys nothing.
       staleTime: 30_000,
       refetchOnWindowFocus: false,
-      retry: 1,
+      // In a packaged build the window opens while the sidecar is still
+      // starting: PyInstaller unpacks, then DuckDB opens a database with
+      // hundreds of sessions. That takes seconds, and the first few requests
+      // are refused. Retry long enough to cover a cold start rather than
+      // showing "Load failed" on a service that is merely still booting.
+      retry: 8,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
     },
   },
 });
