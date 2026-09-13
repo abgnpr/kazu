@@ -1,10 +1,10 @@
 [package]
 name = "kazu"
 version = "0.1.0"
-description = "Kazu market-data desktop app"
-authors = ["you"]
-license = ""
-repository = ""
+description = "Kazu - local-first NSE market analysis"
+authors = ["abgnpr"]
+license = "MIT"
+repository = "https://github.com/abgnpr/kazu"
 edition = "2021"
 rust-version = "1.77.2"
 

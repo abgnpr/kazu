@@ -1,4 +1,4 @@
-//! Tauri shell for Kazu.
+//! Tauri shell for Kazu — local-first NSE market analysis, by abgnpr.
 //!
 //! Almost all application logic lives in the Python service and the React UI.
 //! This layer only: creates the window, starts the Python sidecar, hands the

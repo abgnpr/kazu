@@ -1,5 +1,5 @@
 {
-  "name": "frontend",
+  "name": "kazu-frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -35,5 +35,8 @@
     "react-dom": "^19.3.0",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
-  }
+  },
+  "description": "Kazu desktop UI",
+  "author": "abgnpr",
+  "license": "MIT"
 }

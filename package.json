@@ -2,7 +2,9 @@
   "name": "kazu",
   "private": true,
   "version": "0.1.0",
-  "description": "Local-first market data analysis desktop app",
+  "description": "Kazu - local-first NSE market analysis desktop app",
+  "author": "abgnpr",
+  "license": "MIT",
   "scripts": {
     "dev": "./scripts/dev.sh",
     "dev:api": "cd backend && uv run python -m kazu",

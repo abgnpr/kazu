@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Kazu",
   "version": "0.1.0",
-  "identifier": "com.kazu.app",
+  "identifier": "com.abgnpr.kazu",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -43,6 +43,11 @@
     ],
     "android": {
       "debugApplicationIdSuffix": ".debug"
-    }
+    },
+    "publisher": "abgnpr",
+    "copyright": "\u00a9 abgnpr",
+    "category": "Finance",
+    "shortDescription": "Local-first NSE market analysis",
+    "longDescription": "Kazu by abgnpr \u2014 a local-first desktop app for NSE market data: daily bhavcopy ingest into DuckDB, CAR + 30/50/200 DMA breakout screening, and charts that show exactly what the screen tests."
   }
 }

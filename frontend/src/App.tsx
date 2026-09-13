@@ -2,11 +2,13 @@ import { AppShell, Badge, Group, Stack, Tabs, Title } from "@mantine/core";
 import { IconChartCandle, IconTable } from "@tabler/icons-react";
 import { useState } from "react";
 
+import { AboutMenu } from "./components/AboutMenu";
 import { BreakoutTable } from "./components/BreakoutTable";
 import { CoverageBar } from "./components/CoverageBar";
 import { PriceChart } from "./components/PriceChart";
 import { ScreenerTable } from "./components/ScreenerTable";
 import { StatusBar } from "./components/StatusBar";
+import { APP_NAME } from "./brand";
 
 /** Panels are flex columns so a table can own the remaining height and scroll
  *  within it, rather than pushing the page past the viewport. */
@@ -25,12 +27,15 @@ export function App() {
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group gap="xs">
-            <Title order={4}>Kazu</Title>
+            <Title order={4}>{APP_NAME}</Title>
             <Badge variant="light" size="xs">
               NSE
             </Badge>
           </Group>
-          <StatusBar />
+          <Group gap="xs">
+            <StatusBar />
+            <AboutMenu />
+          </Group>
         </Group>
       </AppShell.Header>
 

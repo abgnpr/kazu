@@ -1,7 +1,9 @@
 # Kazu
 
-Local-first desktop app for market data analysis. Single user, single machine,
-one database file.
+Local-first desktop app for NSE market data analysis. Single user, single
+machine, one database file.
+
+*By [abgnpr](https://github.com/abgnpr). MIT licensed.*
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -163,3 +165,10 @@ status, breakout flag, and 200-DMA distance agree on every symbol tested.
   Parquet directly, so moving bulk history out later is not a rewrite.
 - **WebSockets.** REST is enough for daily data; FastAPI supports WS natively
   when live quotes arrive.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+Kazu reads publicly published NSE end-of-day data. Its screening output is a
+research tool, not investment advice.

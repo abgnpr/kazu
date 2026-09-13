@@ -1,8 +1,10 @@
 [project]
 name = "kazu-backend"
 version = "0.1.0"
-description = "Kazu local market-data service: FastAPI + DuckDB"
+description = "Kazu backend: local-first NSE market analysis service"
 requires-python = ">=3.12"
+authors = [{ name = "abgnpr" }]
+license = "MIT"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
