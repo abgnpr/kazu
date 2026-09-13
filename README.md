@@ -59,12 +59,13 @@ backend/kazu/
 ├── config.py         KAZU_* settings
 ├── jobs.py           scheduler + staleness ledger
 ├── api/routes.py     HTTP endpoints
-├── analytics/        SQL indicators and screener metrics
-└── data/             DuckDB access, schema, sample seed
+├── analytics/        SQL indicators and the breakout screen
+├── sources/          NSE bhavcopy fetch + ingest scheduling
+└── data/             DuckDB access and schema
 
 frontend/src/
 ├── api/              typed client + TanStack Query hooks
-├── components/       ScreenerTable, PriceChart, StatusBar
+├── components/       BreakoutTable, ScreenerTable, PriceChart, CoverageBar
 ├── theme/            Mantine theme and formatters
 └── src-tauri/        Rust shell: spawns and supervises the sidecar
 ```
@@ -98,10 +99,31 @@ npm run build
 
 This packages the service with PyInstaller into
 `frontend/src-tauri/binaries/kazu-service-<target-triple>`, then bundles it with
-the Tauri app via `tauri.release.conf.json`, the overlay that declares the
-sidecar. It is kept out of the base config so `npm run dev` does not require a
-PyInstaller build. Installers land in `frontend/src-tauri/target/release/bundle/`.
+the Tauri app via `src-tauri/tauri.release.conf.json`, the overlay that declares
+the sidecar. It is kept out of the base config so `npm run dev` does not require
+a PyInstaller build. Output lands in
+`frontend/src-tauri/target/release/bundle/`.
+
 The user installs one file and needs no Python, Node or Rust.
+
+**You can only build for the platform you are on.** Tauri bundles natively, so a
+Windows `.exe` or a macOS `.dmg` needs that machine (or CI). On Linux the
+default target is AppImage, which is a single portable file that runs on any
+distro:
+
+```bash
+chmod +x Kazu_0.1.0_amd64.AppImage
+./Kazu_0.1.0_amd64.AppImage
+```
+
+To also produce `.deb` or `.rpm`, install the relevant tooling (`dpkg-dev`,
+`rpm-build`) and add those targets to `bundle.targets` in
+`src-tauri/tauri.release.conf.json`.
+
+One packaging detail worth knowing: a PyInstaller bundle has no importable
+`kazu.app` module path, so `__main__.py` hands uvicorn the app *object* when
+frozen and the import string otherwise. Passing the string in a frozen build
+fails at startup with "Could not import module".
 
 ## Data source: NSE bhavcopy
 
