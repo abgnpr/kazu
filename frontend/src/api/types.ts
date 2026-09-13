@@ -10,8 +10,9 @@ export type ScreenerRow = {
   volume: number;
   avg_vol_30: number | null;
   rel_volume: number | null;
-  sma20: number | null;
+  sma30: number | null;
   sma50: number | null;
+  sma200: number | null;
   return_3m: number | null;
   return_1y: number | null;
   volatility: number | null;
@@ -26,8 +27,12 @@ export type Candle = {
   low: number;
   close: number;
   volume: number;
-  sma20: number | null;
+  /** 30/50/200 mirror the breakout screen's conditions exactly. */
+  sma30: number | null;
   sma50: number | null;
+  sma200: number | null;
+  /** Running 52-week high: the level the CAR window is measured from. */
+  high_52w: number | null;
   rsi14: number | null;
 };
 

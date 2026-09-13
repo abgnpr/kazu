@@ -25,18 +25,28 @@ steps AS (
     FROM base
 ),
 rolled AS (
+    -- 30/50/200 to match the breakout screen exactly. A chart showing different
+    -- averages than the strategy tests is worse than no chart.
     SELECT *,
-           avg(close) OVER (ORDER BY date ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS sma20,
-           avg(close) OVER (ORDER BY date ROWS BETWEEN 49 PRECEDING AND CURRENT ROW) AS sma50,
-           avg(gain)  OVER (ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) AS avg_gain,
-           avg(loss)  OVER (ORDER BY date ROWS BETWEEN 13 PRECEDING AND CURRENT ROW) AS avg_loss,
-           count(*)   OVER (ORDER BY date ROWS BETWEEN 49 PRECEDING AND CURRENT ROW) AS n50,
-           count(*)   OVER (ORDER BY date ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS n20
+           avg(close) OVER (ORDER BY date ROWS BETWEEN 29  PRECEDING AND CURRENT ROW) AS sma30,
+           avg(close) OVER (ORDER BY date ROWS BETWEEN 49  PRECEDING AND CURRENT ROW) AS sma50,
+           avg(close) OVER (ORDER BY date ROWS BETWEEN 199 PRECEDING AND CURRENT ROW) AS sma200,
+           avg(gain)  OVER (ORDER BY date ROWS BETWEEN 13  PRECEDING AND CURRENT ROW) AS avg_gain,
+           avg(loss)  OVER (ORDER BY date ROWS BETWEEN 13  PRECEDING AND CURRENT ROW) AS avg_loss,
+           count(*)   OVER (ORDER BY date ROWS BETWEEN 29  PRECEDING AND CURRENT ROW) AS n30,
+           count(*)   OVER (ORDER BY date ROWS BETWEEN 49  PRECEDING AND CURRENT ROW) AS n50,
+           count(*)   OVER (ORDER BY date ROWS BETWEEN 199 PRECEDING AND CURRENT ROW) AS n200,
+           -- Running 52-week high, so the chart can mark the level the CAR
+           -- window is measured from.
+           max(high)  OVER (ORDER BY date ROWS BETWEEN 251 PRECEDING AND CURRENT ROW) AS high_52w
     FROM steps
 )
 SELECT date, open, high, low, close, volume,
-       CASE WHEN n20 >= 20 THEN round(sma20, 2) END AS sma20,
-       CASE WHEN n50 >= 50 THEN round(sma50, 2) END AS sma50,
+       -- NULL until the window is actually full, so no misleading partial average.
+       CASE WHEN n30  >= 30  THEN round(sma30, 2)  END AS sma30,
+       CASE WHEN n50  >= 50  THEN round(sma50, 2)  END AS sma50,
+       CASE WHEN n200 >= 200 THEN round(sma200, 2) END AS sma200,
+       round(high_52w, 2) AS high_52w,
        CASE
            WHEN avg_loss IS NULL THEN NULL
            WHEN avg_loss = 0 THEN 100.0
@@ -76,8 +86,9 @@ prev AS (
 window_stats AS (
     SELECT symbol,
            avg(CASE WHEN rn <= 30 THEN volume END)              AS avg_vol_30,
-           avg(CASE WHEN rn <= 20 THEN close END)               AS sma20,
+           avg(CASE WHEN rn <= 30 THEN close END)               AS sma30,
            avg(CASE WHEN rn <= 50 THEN close END)               AS sma50,
+           avg(CASE WHEN rn <= 200 THEN close END)              AS sma200,
            max(CASE WHEN rn = 66  THEN close END)               AS close_3m,
            max(CASE WHEN rn = 252 THEN close END)               AS close_1y,
            stddev_samp(CASE WHEN rn <= 252 THEN close END)
@@ -94,8 +105,9 @@ SELECT l.symbol,
        l.volume,
        round(w.avg_vol_30, 0)                                              AS avg_vol_30,
        round(l.volume / nullif(w.avg_vol_30, 0), 2)                        AS rel_volume,
-       round(w.sma20, 2)                                                   AS sma20,
+       round(w.sma30, 2)                                                   AS sma30,
        round(w.sma50, 2)                                                   AS sma50,
+       round(w.sma200, 2)                                                  AS sma200,
        round((l.close - w.close_3m) / nullif(w.close_3m, 0) * 100, 2)       AS return_3m,
        round((l.close - w.close_1y) / nullif(w.close_1y, 0) * 100, 2)      AS return_1y,
        round(w.volatility, 2)                                              AS volatility,
