@@ -30,7 +30,8 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useMemo, useRef, useState } from "react";
 
 import { useScreener } from "../api/queries";
 import type { ScreenerRow } from "../api/types";
@@ -47,6 +48,9 @@ const features = tableFeatures({
   sortFns: { text: sortFn_text, basic: sortFn_basic },
   filterFns: { includesString: filterFn_includesString },
 });
+
+/** Must match the actual rendered row height, or scroll offsets drift. */
+const ROW_HEIGHT = 37;
 
 const col = createColumnHelper<typeof features, ScreenerRow>();
 
@@ -154,6 +158,7 @@ export function ScreenerTable({ selected, onSelect }: Props) {
   ]);
   const [filter, setFilter] = useState("");
 
+  const scrollRef = useRef<HTMLDivElement>(null);
   const rows = useMemo(() => data ?? [], [data]);
 
   const table = useTable<typeof features, ScreenerRow>({
@@ -166,6 +171,17 @@ export function ScreenerTable({ selected, onSelect }: Props) {
     onGlobalFilterChange: setFilter,
   });
 
+  // Rendering ~2,900 rows costs about a second per tab switch, because Mantine
+  // unmounts the inactive panel and every row is rebuilt on the way back.
+  // Virtualizing keeps the DOM to whatever fits on screen.
+  const modelRows = table.getRowModel().rows;
+  const virtualizer = useVirtualizer({
+    count: modelRows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 12,
+  });
+
   if (error) return <Alert color="red">{(error as Error).message}</Alert>;
   if (isLoading)
     return (
@@ -173,6 +189,13 @@ export function ScreenerTable({ selected, onSelect }: Props) {
         <Loader size="sm" />
       </Group>
     );
+
+  const virtualRows = virtualizer.getVirtualItems();
+  const totalSize = virtualizer.getTotalSize();
+  const padTop = virtualRows.length ? virtualRows[0].start : 0;
+  const padBottom = virtualRows.length
+    ? totalSize - virtualRows[virtualRows.length - 1].end
+    : 0;
 
   return (
     <div
@@ -192,15 +215,11 @@ export function ScreenerTable({ selected, onSelect }: Props) {
         value={filter}
         onChange={(e) => setFilter(e.currentTarget.value)}
       />
-      {/* Mantine's scroll container only sets overflow-x, so overflow-y is
-          declared here; type="native" keeps both axes on one real scrollport.
-          minHeight: 0 is required for the flex parent to allow shrinking. */}
-      <Table.ScrollContainer
-        minWidth={900}
-        type="native"
-        style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
-      >
-        <Table highlightOnHover stickyHeader>
+      {/* The scrollport is a plain div we own: Mantine's ScrollContainer wraps
+          the table in an extra element, which the virtualizer would have to
+          measure through. minHeight: 0 lets this flex child shrink. */}
+      <div ref={scrollRef} style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+        <Table highlightOnHover stickyHeader miw={900}>
           <Table.Thead>
             {table.getHeaderGroups().map((hg) => (
               <Table.Tr key={hg.id}>
@@ -232,27 +251,46 @@ export function ScreenerTable({ selected, onSelect }: Props) {
             ))}
           </Table.Thead>
           <Table.Tbody>
-            {table.getRowModel().rows.map((row) => (
-              <Table.Tr
-                key={row.id}
-                onClick={() => onSelect(row.original.symbol)}
-                bg={
-                  row.original.symbol === selected
-                    ? "var(--mantine-color-dark-6)"
-                    : undefined
-                }
-                style={{ cursor: "pointer" }}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <Table.Td key={cell.id}>
-                    <table.FlexRender cell={cell} />
-                  </Table.Td>
-                ))}
+            {padTop > 0 && (
+              <Table.Tr aria-hidden style={{ height: padTop }}>
+                <Table.Td
+                  colSpan={columns.length}
+                  style={{ padding: 0, border: 0 }}
+                />
               </Table.Tr>
-            ))}
+            )}
+            {virtualRows.map((v) => {
+              const row = modelRows[v.index];
+              return (
+                <Table.Tr
+                  key={row.id}
+                  onClick={() => onSelect(row.original.symbol)}
+                  bg={
+                    row.original.symbol === selected
+                      ? "var(--mantine-color-dark-6)"
+                      : undefined
+                  }
+                  style={{ cursor: "pointer", height: ROW_HEIGHT }}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <Table.Td key={cell.id}>
+                      <table.FlexRender cell={cell} />
+                    </Table.Td>
+                  ))}
+                </Table.Tr>
+              );
+            })}
+            {padBottom > 0 && (
+              <Table.Tr aria-hidden style={{ height: padBottom }}>
+                <Table.Td
+                  colSpan={columns.length}
+                  style={{ padding: 0, border: 0 }}
+                />
+              </Table.Tr>
+            )}
           </Table.Tbody>
         </Table>
-      </Table.ScrollContainer>
+      </div>
     </div>
   );
 }

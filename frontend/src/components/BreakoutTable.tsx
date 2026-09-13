@@ -9,7 +9,8 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { IconCheck, IconX } from "@tabler/icons-react";
-import { useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useRef, useState } from "react";
 
 import { useBreakouts } from "../api/queries";
 import type { BreakoutRow } from "../api/types";
@@ -57,9 +58,24 @@ type Props = {
   onSelect: (symbol: string) => void;
 };
 
+/** Must match the actual rendered row height, or scroll offsets drift. */
+const ROW_HEIGHT = 37;
+const COLUMN_COUNT = 12;
+
 export function BreakoutTable({ selected, onSelect }: Props) {
   const [onlyPassing, setOnlyPassing] = useState(true);
   const { data, isLoading, error } = useBreakouts(onlyPassing);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const allRows = data?.rows ?? [];
+
+  // Same reason as the screener: the panel unmounts on tab switch, so every row
+  // would otherwise be rebuilt from scratch each time.
+  const virtualizer = useVirtualizer({
+    count: allRows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 12,
+  });
 
   if (error) return <Alert color="red">{(error as Error).message}</Alert>;
   if (isLoading)
@@ -69,8 +85,14 @@ export function BreakoutTable({ selected, onSelect }: Props) {
       </Group>
     );
 
-  const rows = data?.rows ?? [];
+  const rows = allRows;
   const coverage = data?.coverage;
+  const virtualRows = virtualizer.getVirtualItems();
+  const totalSize = virtualizer.getTotalSize();
+  const padTop = virtualRows.length ? virtualRows[0].start : 0;
+  const padBottom = virtualRows.length
+    ? totalSize - virtualRows[virtualRows.length - 1].end
+    : 0;
 
   return (
     <div
@@ -115,12 +137,11 @@ export function BreakoutTable({ selected, onSelect }: Props) {
       )}
 
       {rows.length > 0 && (
-        <Table.ScrollContainer
-          minWidth={1000}
-          type="native"
-          style={{ flex: 1, minHeight: 0, overflowY: "auto" }}
+        <div
+          ref={scrollRef}
+          style={{ flex: 1, minHeight: 0, overflow: "auto" }}
         >
-          <Table highlightOnHover stickyHeader>
+          <Table highlightOnHover stickyHeader miw={1000}>
             <Table.Thead>
               <Table.Tr>
                 {[
@@ -156,90 +177,109 @@ export function BreakoutTable({ selected, onSelect }: Props) {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {rows.map((r: BreakoutRow) => (
-                <Table.Tr
-                  key={r.symbol}
-                  onClick={() => onSelect(r.symbol)}
-                  bg={
-                    r.symbol === selected
-                      ? "var(--mantine-color-dark-6)"
-                      : undefined
-                  }
-                  style={{ cursor: "pointer" }}
-                >
-                  <Table.Td>
-                    <Group gap={6} wrap="nowrap">
-                      {r.breakout && (
-                        <Tooltip label="Clears all four conditions">
-                          <Badge
-                            size="xs"
-                            circle
-                            color="teal"
-                            variant="filled"
-                            p={0}
-                            w={7}
-                            h={7}
-                          />
-                        </Tooltip>
-                      )}
-                      <Text size="sm" fw={600}>
-                        {r.symbol}
-                      </Text>
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>
-                    <Num value={fmtPrice(r.close)} />
-                  </Table.Td>
-                  <Table.Td>
-                    <Num value={fmtPct(r.change_pct)} tone />
-                  </Table.Td>
-                  <Table.Td>
-                    <Num value={fmtPrice(r.sma30)} />
-                  </Table.Td>
-                  <Table.Td>
-                    <Num value={fmtPrice(r.sma50)} />
-                  </Table.Td>
-                  <Table.Td>
-                    <Num value={fmtPrice(r.sma200)} />
-                  </Table.Td>
-                  <Table.Td>
-                    <Tooltip
-                      label={`CAR rising ${r.car_sessions} session(s) since the 52w high on ${r.high_date}`}
-                      withArrow
-                    >
-                      <Text size="xs" c={r.car_positive ? "teal" : "dimmed"}>
-                        {r.car_positive ? "rising" : "flat/falling"}
-                      </Text>
-                    </Tooltip>
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap={3} wrap="nowrap">
-                      <Flag ok={r.above_30dma} label="Above 30 DMA" />
-                      <Flag ok={r.above_50dma} label="Above 50 DMA" />
-                      <Flag ok={r.above_200dma} label="Above 200 DMA" />
-                      <Flag
-                        ok={r.car_positive}
-                        label="CAR rising 10 sessions"
-                      />
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>
-                    <Num value={fmtPct(r.dist_200dma_pct)} tone />
-                  </Table.Td>
-                  <Table.Td>
-                    <Num value={fmtPct(r.from_52w_high_pct)} tone />
-                  </Table.Td>
-                  <Table.Td>
-                    <Num value={r.rel_volume?.toFixed(2) ?? "—"} />
-                  </Table.Td>
-                  <Table.Td>
-                    <Num value={fmtCompact(r.volume)} />
-                  </Table.Td>
+              {padTop > 0 && (
+                <Table.Tr aria-hidden style={{ height: padTop }}>
+                  <Table.Td
+                    colSpan={COLUMN_COUNT}
+                    style={{ padding: 0, border: 0 }}
+                  />
                 </Table.Tr>
-              ))}
+              )}
+              {virtualRows.map((v) => {
+                const r: BreakoutRow = rows[v.index];
+                return (
+                  <Table.Tr
+                    key={r.symbol}
+                    onClick={() => onSelect(r.symbol)}
+                    bg={
+                      r.symbol === selected
+                        ? "var(--mantine-color-dark-6)"
+                        : undefined
+                    }
+                    style={{ cursor: "pointer", height: ROW_HEIGHT }}
+                  >
+                    <Table.Td>
+                      <Group gap={6} wrap="nowrap">
+                        {r.breakout && (
+                          <Tooltip label="Clears all four conditions">
+                            <Badge
+                              size="xs"
+                              circle
+                              color="teal"
+                              variant="filled"
+                              p={0}
+                              w={7}
+                              h={7}
+                            />
+                          </Tooltip>
+                        )}
+                        <Text size="sm" fw={600}>
+                          {r.symbol}
+                        </Text>
+                      </Group>
+                    </Table.Td>
+                    <Table.Td>
+                      <Num value={fmtPrice(r.close)} />
+                    </Table.Td>
+                    <Table.Td>
+                      <Num value={fmtPct(r.change_pct)} tone />
+                    </Table.Td>
+                    <Table.Td>
+                      <Num value={fmtPrice(r.sma30)} />
+                    </Table.Td>
+                    <Table.Td>
+                      <Num value={fmtPrice(r.sma50)} />
+                    </Table.Td>
+                    <Table.Td>
+                      <Num value={fmtPrice(r.sma200)} />
+                    </Table.Td>
+                    <Table.Td>
+                      <Tooltip
+                        label={`CAR rising ${r.car_sessions} session(s) since the 52w high on ${r.high_date}`}
+                        withArrow
+                      >
+                        <Text size="xs" c={r.car_positive ? "teal" : "dimmed"}>
+                          {r.car_positive ? "rising" : "flat/falling"}
+                        </Text>
+                      </Tooltip>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap={3} wrap="nowrap">
+                        <Flag ok={r.above_30dma} label="Above 30 DMA" />
+                        <Flag ok={r.above_50dma} label="Above 50 DMA" />
+                        <Flag ok={r.above_200dma} label="Above 200 DMA" />
+                        <Flag
+                          ok={r.car_positive}
+                          label="CAR rising 10 sessions"
+                        />
+                      </Group>
+                    </Table.Td>
+                    <Table.Td>
+                      <Num value={fmtPct(r.dist_200dma_pct)} tone />
+                    </Table.Td>
+                    <Table.Td>
+                      <Num value={fmtPct(r.from_52w_high_pct)} tone />
+                    </Table.Td>
+                    <Table.Td>
+                      <Num value={r.rel_volume?.toFixed(2) ?? "—"} />
+                    </Table.Td>
+                    <Table.Td>
+                      <Num value={fmtCompact(r.volume)} />
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })}
+              {padBottom > 0 && (
+                <Table.Tr aria-hidden style={{ height: padBottom }}>
+                  <Table.Td
+                    colSpan={COLUMN_COUNT}
+                    style={{ padding: 0, border: 0 }}
+                  />
+                </Table.Tr>
+              )}
             </Table.Tbody>
           </Table>
-        </Table.ScrollContainer>
+        </div>
       )}
     </div>
   );
