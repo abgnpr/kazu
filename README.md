@@ -26,7 +26,20 @@ machine, one database file.
 - Python 3.12+ and [uv](https://docs.astral.sh/uv/)
 - Node.js 20+
 - Rust (stable) — only to build the shell; there is no application Rust to write
-- Linux: `webkit2gtk4.1-devel`, `gtk3-devel`, `librsvg2-devel`, `openssl-devel`
+
+Platform system packages:
+
+```bash
+# Fedora
+sudo dnf install webkit2gtk4.1-devel gtk3-devel librsvg2-devel openssl-devel
+
+# Debian / Ubuntu
+sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
+    build-essential curl wget file
+```
+
+On Windows, see [Building a release → Windows](#windows). On macOS, Xcode
+Command Line Tools (`xcode-select --install`).
 
 ## Getting started
 
@@ -42,13 +55,6 @@ equities) so the app is usable in seconds. The breakout screen needs ~250
 sessions of history, which is one HTTP request per trading day — click
 **Backfill 2 years** in the app when you want it (about a minute). Delete
 `~/.local/share/kazu/kazu.duckdb` to reset.
-
-Useful alternatives:
-
-```bash
-npm run dev:api      # just the Python service (reachable at :8765/docs)
-npm run dev:ui       # just Vite, in a browser instead of the Tauri window
-```
 
 ## Layout
 
@@ -91,39 +97,157 @@ shell spawns the sidecar and kills it on exit. In dev it does not — you run
 **The API is not open.** It binds to `127.0.0.1` only, and packaged builds
 require an `X-Kazu-Token` header generated at launch. The token is empty in dev.
 
+## Everyday commands
+
+```bash
+npm run dev            # Python service + Tauri window
+npm run dev:api        # just the service; docs at :8765/docs
+npm run dev:ui         # just Vite, in a normal browser
+
+npm run lint           # ruff + oxlint
+npm run typecheck      # tsc over the frontend
+npm run format         # ruff format
+```
+
+`npm run dev` starts the Python service first and waits for it to answer before
+opening the window, so the UI never loads against a dead backend.
+
+`npm run lint` reports two expected `react(incompatible-library)` warnings on
+`useVirtualizer` in the table components: it returns functions the React
+Compiler cannot memoize, so those components opt out of auto-memoization. No
+virtualizer values are passed into memoized children, so this is benign.
+
+The API is self-documenting: with the service running, open
+<http://127.0.0.1:8765/docs> for live Swagger UI covering every endpoint below.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/health` | Service status and instrument count |
+| `GET /api/coverage` | How much history exists, and whether it is enough for the 200 DMA |
+| `GET /api/instruments` | Every known symbol with name, exchange, sector |
+| `GET /api/screener` | Latest snapshot per instrument with derived metrics |
+| `GET /api/breakouts` | The CAR + DMA screen; `?only_passing=true` to filter |
+| `GET /api/instruments/{symbol}/history` | OHLCV plus SMA30/50/200, RSI, 52w high |
+| `GET/PUT/DELETE /api/watchlist` | Read and edit a named watchlist |
+| `GET /api/jobs`, `POST /api/jobs/refresh` | Scheduler state; force a refresh |
+| `POST /api/ingest/backfill?days=N` | Fetch history on demand |
+
 ## Building a release
 
 ```bash
-npm run build
+npm run build            # Linux:   AppImage
+npm run build:windows    # Windows: NSIS .exe installer
 ```
 
-This packages the service with PyInstaller into
-`frontend/src-tauri/binaries/kazu-service-<target-triple>`, then bundles it with
-the Tauri app via `src-tauri/tauri.release.conf.json`, the overlay that declares
-the sidecar. It is kept out of the base config so `npm run dev` does not require
-a PyInstaller build. Output lands in
-`frontend/src-tauri/target/release/bundle/`.
+Either command does the same two things: package the Python service into a
+single executable with PyInstaller, then bundle it with the Tauri app. Output
+lands in `frontend/src-tauri/target/release/bundle/`.
 
-The user installs one file and needs no Python, Node or Rust.
+The person installing needs no Python, Node or Rust — it is all inside.
 
-**You can only build for the platform you are on.** Tauri bundles natively, so a
-Windows `.exe` or a macOS `.dmg` needs that machine (or CI). On Linux the
-default target is AppImage, which is a single portable file that runs on any
-distro:
+**You can only build for the platform you are on.** Tauri bundles natively:
+there is no cross-compiling to Windows from Linux. A Windows installer needs a
+Windows machine or a Windows CI runner; the same goes for macOS.
+
+### Linux
+
+Produces `Kazu_0.1.0_amd64.AppImage` — one portable file that runs on any
+distro, no installation:
 
 ```bash
 chmod +x Kazu_0.1.0_amd64.AppImage
 ./Kazu_0.1.0_amd64.AppImage
 ```
 
-To also produce `.deb` or `.rpm`, install the relevant tooling (`dpkg-dev`,
-`rpm-build`) and add those targets to `bundle.targets` in
-`src-tauri/tauri.release.conf.json`.
+The build sets `NO_STRIP=1`. linuxdeploy bundles an old `strip` that cannot
+parse the `.relr.dyn` section in current glibc libraries and aborts on nearly
+every library; stripping only saves space, so it is skipped. Without it the
+build fails with an unhelpful `failed to run linuxdeploy`.
 
-One packaging detail worth knowing: a PyInstaller bundle has no importable
-`kazu.app` module path, so `__main__.py` hands uvicorn the app *object* when
-frozen and the import string otherwise. Passing the string in a frozen build
-fails at startup with "Could not import module".
+To also emit `.deb` or `.rpm`, install `dpkg-dev` or `rpm-build` and change
+`--bundles appimage` in `frontend/package.json` to `--bundles appimage,deb,rpm`.
+
+### Windows
+
+One-time setup on the Windows machine:
+
+1. **Visual Studio Build Tools** with the *Desktop development with C++*
+   workload — Rust needs the MSVC linker.
+   <https://visualstudio.microsoft.com/visual-cpp-build-tools/>
+2. **WebView2 runtime** — preinstalled on Windows 11 and current Windows 10. On
+   older builds, install the Evergreen runtime.
+   <https://developer.microsoft.com/microsoft-edge/webview2/>
+3. **Rust** via <https://rustup.rs> (pick the `x86_64-pc-windows-msvc` host),
+   **Node.js 20+**, **Python 3.12+**, and **uv**:
+   ```powershell
+   winget install --id=astral-sh.uv -e
+   ```
+4. **Git Bash** (ships with Git for Windows) — `scripts/build-sidecar.sh` is a
+   bash script. Run the build from a Git Bash prompt, not PowerShell.
+
+Then:
+
+```bash
+cd backend && uv sync --extra dev && cd ..
+cd frontend && npm install && cd ..
+npm run build:windows
+```
+
+That writes `Kazu_0.1.0_x64-setup.exe` to
+`frontend/src-tauri/target/release/bundle/nsis/`.
+
+For an MSI instead of an NSIS installer, use `--bundles msi` (it needs the WiX
+toolset, which Tauri downloads on first use).
+
+Note that `--bundles` only accepts values the *current* platform can build:
+`tauri build --help` on Linux lists only `deb, rpm, appimage`, and `nsis`/`msi`
+appear only when run on Windows. That is why `build:windows` is a separate
+script rather than something you can invoke from here.
+
+Two Windows details the build already handles: PyInstaller emits
+`kazu-service.exe`, and Tauri expects the `.exe` to come *after* the target
+triple (`kazu-service-x86_64-pc-windows-msvc.exe`) — `build-sidecar.sh` renames
+it accordingly. The sidecar's parent-process watchdog is `os.kill(pid, 0)`,
+which works on Windows as well.
+
+### Building all three without three machines
+
+`.github/workflows/release.yml` builds Linux, Windows and macOS installers on
+GitHub's runners and uploads them as artifacts. Push a tag:
+
+```bash
+git tag v0.1.0 && git push --tags
+```
+
+or trigger it manually from the Actions tab. This is the practical way to get a
+Windows `.exe` without keeping a Windows machine around — the runner does the
+same `build-sidecar.sh` + `tauri build` that you would run locally.
+
+### Distributing
+
+An unsigned installer will be flagged. On Windows, SmartScreen shows
+"Windows protected your PC" until the binary builds reputation or you sign it
+with a code-signing certificate; on macOS, Gatekeeper blocks unsigned apps
+outright. Tauri supports signing on both — see
+<https://tauri.app/distribute/sign/>. For a personal or small-audience tool,
+unsigned is usually fine as long as people know to expect the warning.
+
+Bumping the version means three files, which must agree:
+`package.json`, `frontend/src-tauri/tauri.conf.json`, and
+`frontend/src-tauri/Cargo.toml`.
+
+Tauri also has a built-in updater if you later want the app to update itself:
+<https://tauri.app/plugin/updater/>.
+
+### If a build fails
+
+| Symptom | Cause |
+|---|---|
+| `resource path binaries/kazu-service-... doesn't exist` | Sidecar not built — run `npm run build:sidecar` |
+| `failed to run linuxdeploy` | Missing `NO_STRIP=1` (see above) |
+| `Error loading ASGI app. Could not import module "kazu.app"` | A frozen build was handed uvicorn an import string instead of the app object |
+| `failed to read configuration file` | `--config` resolves relative to `frontend/`, so the path must be `src-tauri/tauri.release.conf.json` |
+| Port 8765 already in use | An orphaned `kazu-service` — the watchdog should prevent this; kill it and report the case |
 
 ## Data source: NSE bhavcopy
 

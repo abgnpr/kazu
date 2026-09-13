@@ -12,7 +12,8 @@
     "build:sidecar": "./scripts/build-sidecar.sh",
     "build": "npm run build:sidecar && cd frontend && npm run tauri:build",
     "lint": "cd backend && uv run ruff check . && cd ../frontend && npm run lint",
-    "typecheck": "cd frontend && tsc -b --force",
-    "format": "cd backend && uv run ruff format ."
+    "typecheck": "cd frontend && npx tsc -b --force",
+    "format": "cd backend && uv run ruff format .",
+    "build:windows": "npm run build:sidecar && cd frontend && npm run tauri:build:windows"
   }
 }

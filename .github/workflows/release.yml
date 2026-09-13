@@ -1,0 +1,77 @@
+# Builds installers for every platform on tag push. Tauri cannot cross-compile,
+# so each target needs a runner of that OS.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            bundles: appimage,deb
+            artifact: linux
+          - os: windows-latest
+            bundles: nsis
+            artifact: windows
+          - os: macos-latest
+            bundles: dmg
+            artifact: macos
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
+            librsvg2-dev libssl-dev build-essential curl wget file
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Rust release builds dominate the runtime; cache them between runs.
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: frontend/src-tauri
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build the Python sidecar
+        shell: bash
+        run: ./scripts/build-sidecar.sh
+
+      - name: Build the installer
+        working-directory: frontend
+        shell: bash
+        # NO_STRIP is only meaningful on Linux; it is harmless elsewhere.
+        run: |
+          NO_STRIP=1 npx tauri build \
+            --config src-tauri/tauri.release.conf.json \
+            --bundles ${{ matrix.bundles }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kazu-${{ matrix.artifact }}
+          path: |
+            frontend/src-tauri/target/release/bundle/appimage/*.AppImage
+            frontend/src-tauri/target/release/bundle/deb/*.deb
+            frontend/src-tauri/target/release/bundle/nsis/*.exe
+            frontend/src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: warn

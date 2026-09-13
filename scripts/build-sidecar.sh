@@ -30,13 +30,22 @@ uv run pyinstaller \
     --hidden-import uvicorn.protocols.websockets.auto \
     kazu/__main__.py
 
+# PyInstaller appends .exe on Windows, and Tauri expects the extension to be
+# preserved after the target triple. Works under Git Bash / MSYS on Windows.
+EXT=""
+case "$TRIPLE" in
+    *windows*) EXT=".exe" ;;
+esac
+
 mkdir -p "$DEST"
-cp "$BACKEND/dist/kazu-service" "$DEST/kazu-service-$TRIPLE"
-chmod +x "$DEST/kazu-service-$TRIPLE"
+cp "$BACKEND/dist/kazu-service$EXT" "$DEST/kazu-service-$TRIPLE$EXT"
+chmod +x "$DEST/kazu-service-$TRIPLE$EXT" 2>/dev/null || true
 
 # Fail loudly here rather than inside the Rust build, where the error is just
 # "resource path doesn't exist".
-"$DEST/kazu-service-$TRIPLE" --help >/dev/null 2>&1 || true
-[ -x "$DEST/kazu-service-$TRIPLE" ] || { echo "sidecar missing or not executable" >&2; exit 1; }
+[ -f "$DEST/kazu-service-$TRIPLE$EXT" ] || {
+    echo "sidecar missing: $DEST/kazu-service-$TRIPLE$EXT" >&2
+    exit 1
+}
 
-echo "==> sidecar ready: $DEST/kazu-service-$TRIPLE"
+echo "==> sidecar ready: $DEST/kazu-service-$TRIPLE$EXT"
