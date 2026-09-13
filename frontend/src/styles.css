@@ -1,0 +1,18 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+/* Desktop app, not a document: the shell manages its own scroll regions. */
+body {
+  overflow: hidden;
+}
+
+/* Tabular figures keep price columns from jittering as digits change. */
+.numeric {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--mantine-font-family-monospace);
+  text-align: right;
+}

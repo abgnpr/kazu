@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
+.pytest_cache/
+dist/
+build/
+*.spec
+
+# Node
+node_modules/
+frontend/dist/
+
+# Rust / Tauri
+target/
+frontend/src-tauri/target/
+
+# Data (local, regenerable) -- root only, not backend/kazu/data/
+/data/
+*.duckdb
+*.duckdb.wal
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Built sidecar binaries (produced by scripts/build-sidecar.sh)
+frontend/src-tauri/binaries/
