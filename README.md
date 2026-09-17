@@ -182,8 +182,13 @@ One-time setup on the Windows machine:
    ```powershell
    winget install --id=astral-sh.uv -e
    ```
-4. **Git Bash** (ships with Git for Windows) — `scripts/build-sidecar.sh` is a
-   bash script. Run the build from a Git Bash prompt, not PowerShell.
+4. **Git for Windows**, installed with the option that puts Unix tools on
+   `PATH` ("Git from the command line and also from 3rd-party software"). The
+   build scripts are bash, and the npm scripts invoke `bash` by name, so
+   `bash --version` must work from a plain terminal. Verify before building:
+   ```powershell
+   bash --version
+   ```
 
 Then:
 
@@ -204,11 +209,19 @@ Note that `--bundles` only accepts values the *current* platform can build:
 appear only when run on Windows. That is why `build:windows` is a separate
 script rather than something you can invoke from here.
 
-Two Windows details the build already handles: PyInstaller emits
-`kazu-service.exe`, and Tauri expects the `.exe` to come *after* the target
-triple (`kazu-service-x86_64-pc-windows-msvc.exe`) — `build-sidecar.sh` renames
-it accordingly. The sidecar's parent-process watchdog is `os.kill(pid, 0)`,
-which works on Windows as well.
+Windows details the build already handles:
+
+- PyInstaller emits `kazu-service.exe`, and Tauri expects the `.exe` to come
+  *after* the target triple (`kazu-service-x86_64-pc-windows-msvc.exe`);
+  `build-sidecar.sh` renames it accordingly.
+- The npm scripts call `bash ./scripts/…` explicitly, because npm runs scripts
+  through `cmd.exe` on Windows, where `./scripts/x.sh` is not executable.
+- The parent-process watchdog is **not** `os.kill(pid, 0)` on Windows. There,
+  `os.kill` with any signal other than `CTRL_C_EVENT`/`CTRL_BREAK_EVENT` calls
+  `TerminateProcess` — so the "existence check" would kill the app it is
+  watching. The Windows path uses `OpenProcess(SYNCHRONIZE)` +
+  `WaitForSingleObject` instead.
+- The database lives under `%LOCALAPPDATA%\Kazu`, not `~/.local/share`.
 
 ### Building all three without three machines
 

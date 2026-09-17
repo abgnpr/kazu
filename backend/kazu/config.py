@@ -1,13 +1,24 @@
 """Runtime configuration. Env vars are prefixed KAZU_ (e.g. KAZU_PORT=8765)."""
 
+import os
+import sys
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def _default_data_dir() -> Path:
-    """XDG data dir, so the DB survives reinstalls and lives outside the repo."""
-    return Path.home() / ".local" / "share" / "kazu"
+    """Per-user data dir, so the DB survives reinstalls and lives outside the repo.
+
+    Each platform has its own convention; writing ~/.local/share on Windows
+    would drop a stray dotfolder in the user profile.
+    """
+    if sys.platform == "win32":
+        base = os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local")
+        return Path(base) / "Kazu"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "Kazu"
+    return Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share")) / "kazu"
 
 
 class Settings(BaseSettings):
